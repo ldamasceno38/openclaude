@@ -50,9 +50,11 @@ export function getProviderApiUserAgent(
   const workload = getWorkload()
   const workloadSuffix = workload ? `, workload/${workload}` : ''
   const isFirstParty = options?.isFirstParty ?? getAPIProvider() === 'firstParty'
-  // Kimi Code currently expects the upstream-compatible client token.
+  // Kimi Code and GitHub Copilot currently expect the upstream-compatible
+  // client token. GitHub Copilot whitelists `claude-cli` but may not
+  // whitelist `openclaude-cli` — keep compatibility until confirmed.
   const requiresCompatibilityIdentity =
-    isFirstParty || options?.providerRouteId === 'kimi-code'
+    isFirstParty || options?.providerRouteId === 'kimi-code' || getAPIProvider() === 'github'
   const productName = requiresCompatibilityIdentity
     ? 'claude-cli'
     : 'openclaude-cli'
