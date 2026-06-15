@@ -1,45 +1,51 @@
-import { describe, expect, test, beforeAll } from 'bun:test'
+import { describe, expect, test, beforeEach } from 'bun:test'
 import adsCmd from './ads.js'
-import { getGlobalConfig } from '../utils/config.js'
+import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js'
 
-// Point the client at an unreachable host so the `on` path's live test tip
-// fails fast and degrades to "enabled, no tip" — exercising config persistence
-// without any real network. (bun test sets NODE_ENV=test, so saveGlobalConfig
-// writes to the in-memory test config.)
-beforeAll(() => {
+// Unreachable host → the background warm-earn fails fast and never hits the
+// network. (bun test sets NODE_ENV=test, so saveGlobalConfig writes in-memory.)
+beforeEach(() => {
   process.env.ADS_BASE_URL = 'http://127.0.0.1:0'
+  saveGlobalConfig(c => ({ ...c, ads: undefined }))
 })
 
-async function run(args: string): Promise<string> {
+type RunResult = { text: string | undefined; node: React.ReactNode }
+
+async function run(args: string): Promise<RunResult> {
   const { call } = await adsCmd.load()
-  const result = await call(args, {} as never)
-  expect(result.type).toBe('text')
-  return (result as { value: string }).value
+  let text: string | undefined
+  const onDone = (result?: string): void => {
+    text = result
+  }
+  const node = await call(onDone, {} as never, args)
+  return { text, node }
 }
 
 describe('/ads command', () => {
   test('status shows off by default', async () => {
-    expect(await run('')).toContain('off')
+    const { text } = await run('')
+    expect(text).toContain('off')
   })
 
-  test('"on" without a code shows usage', async () => {
-    expect(await run('on')).toContain('Usage')
+  test('"on" returns the masked dialog and does not enable yet', async () => {
+    const { node, text } = await run('on')
+    expect(node).toBeTruthy() // renders AdsCodeDialog
+    expect(text).toBeUndefined() // resolves only after the user submits
+    expect(getGlobalConfig().ads?.enabled).toBeFalsy()
   })
 
-  test('"on <code>" enables and persists the earn code', async () => {
-    const value = await run('on testcode123')
-    expect(value.toLowerCase()).toContain('enabled')
-    const ads = getGlobalConfig().ads
-    expect(ads?.enabled).toBe(true)
-    expect(ads?.earnCode).toBe('testcode123')
-  })
-
-  test('status reflects on after enabling', async () => {
-    expect(await run('')).toContain('on')
+  test('"on <code>" never enables inline — it also opens the masked dialog', async () => {
+    const { node, text } = await run('on earn_typed_inline')
+    expect(node).toBeTruthy()
+    expect(text).toBeUndefined()
+    // The inline code is ignored; nothing is persisted from the command line.
+    expect(getGlobalConfig().ads?.enabled).toBeFalsy()
   })
 
   test('"off" disables earning', async () => {
-    expect((await run('off')).toLowerCase()).toContain('disabled')
+    saveGlobalConfig(c => ({ ...c, ads: { enabled: true, earnCode: 'x' } }))
+    const { text } = await run('off')
+    expect(text?.toLowerCase()).toContain('disabled')
     expect(getGlobalConfig().ads?.enabled).toBe(false)
   })
 })
