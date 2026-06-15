@@ -96,6 +96,8 @@ const ads = {
   name: 'ads',
   description: 'Earn opengateway credits from sponsored tips (ads.gitlawb.com)',
   argumentHint: 'on <code> | off',
+  // The earn code is a credential — redact `/ads on <code>` args from history.
+  isSensitive: true,
   supportsNonInteractive: true,
   load: () => Promise.resolve({ call }),
 } satisfies Command
