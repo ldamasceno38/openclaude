@@ -1,7 +1,7 @@
-import chalk from 'chalk'
 import { color } from '../../components/design-system/color.js'
 import { getGlobalConfig } from '../../utils/config.js'
 import { confirmTip, fetchNextTip } from '../ads.js'
+import { renderSponsorLink } from './tipLink.js'
 import type { Tip, TipContext, TipSponsor } from './types.js'
 
 /**
@@ -64,10 +64,13 @@ function renderEarningTip(
   // partner's tracker — that's what records the click and pays us). Fall back to
   // Gitlawb only for the static no-ad line.
   const sponsor = ad?.name?.trim() || GITLAWB.name
-  const badge = green(`${label} · ${sponsor}`)
   const linkUrl = ad?.link?.trim() || GITLAWB.url
-  const url = linkUrl ? ` ${chalk.dim(linkUrl)}` : ''
-  return `${badge} — ${green(body)}${url}`
+  // Make the advertiser name a clickable hyperlink to its click URL instead of
+  // printing the (often very long) tracker URL inline. Clicks still hit the
+  // tracker, so attribution/payout are unchanged.
+  const { display, trailing } = renderSponsorLink(sponsor, linkUrl)
+  const badge = green(`${label} · ${display}`)
+  return `${badge} — ${green(body)}${trailing}`
 }
 
 /**
