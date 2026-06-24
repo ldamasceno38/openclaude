@@ -80,7 +80,9 @@ export function buildEarningTip(): Tip {
 
       let tip
       try {
-        tip = await fetchNextTip(code)
+        // Pass the viewer's latest prompt for contextual ad matching. Enabling
+        // sponsored tips disclosed this sharing; ads.ts sanitizes it first.
+        tip = await fetchNextTip(code, 'openclaude', ctx.latestUserMessage)
       } catch {
         tip = null
       }

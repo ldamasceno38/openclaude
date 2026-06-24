@@ -56,23 +56,51 @@ function withAbortTimeout(ms: number): { signal: AbortSignal; cancel: () => void
   return { signal: controller.signal, cancel: () => clearTimeout(timer) }
 }
 
+// Cap on how much of the prompt we ever share, and best-effort redaction of the
+// obvious secret/PII shapes. Heuristic — bias toward over-redaction. The ads
+// service re-bounds size server-side too.
+const MAX_CONTEXT_CHARS = 500
+
+export function sanitizeForAds(text: string): string {
+  return text
+    .replace(/\b(sk|pk|rk|ghp|gho|ghs|xox[baprs]|AKIA|ASIA)[-_A-Za-z0-9]{8,}\b/g, '[redacted]')
+    .replace(/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, 'Bearer [redacted]')
+    .replace(/\beyJ[A-Za-z0-9._-]{10,}/g, '[redacted-jwt]')
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[redacted-email]')
+    .replace(/\b[A-Fa-f0-9]{32,}\b/g, '[redacted]')
+    .replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, '[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_CONTEXT_CHARS)
+}
+
 /**
- * Fetch the next sponsored tip for this viewer. Returns null when there's
- * nothing to serve (empty inventory) or on any error — ads must never break or
- * block the host CLI, so failures degrade silently to "no tip".
+ * Fetch the next sponsored tip for this viewer. When the viewer has enabled
+ * sponsored tips (which discloses prompt sharing), the sanitized latest prompt
+ * is POSTed for contextual ad matching; otherwise we GET (identity-only).
+ * Returns null on empty inventory / no contextual match / any error — ads must
+ * never break or block the host CLI, so failures degrade silently to "no tip".
  */
 export async function fetchNextTip(
   earnCode: string,
   surface = 'openclaude',
+  userMessage?: string,
 ): Promise<SponsoredTip | null> {
   const { signal, cancel } = withAbortTimeout(ADS_REQUEST_TIMEOUT_MS)
   try {
     const url = `${adsBaseUrl()}/api/ads/next?surface=${encodeURIComponent(surface)}`
-    const resp = await fetchWithProxyRetry(
-      url,
-      { method: 'GET', headers: COMMON_HEADERS(earnCode), signal },
-      { maxAttempts: 2 },
-    )
+    const sanitized = userMessage ? sanitizeForAds(userMessage) : ''
+    const init: RequestInit = sanitized
+      ? {
+          method: 'POST',
+          headers: COMMON_HEADERS(earnCode),
+          body: JSON.stringify({
+            context: { messages: [{ role: 'user', content: sanitized }] },
+          }),
+          signal,
+        }
+      : { method: 'GET', headers: COMMON_HEADERS(earnCode), signal }
+    const resp = await fetchWithProxyRetry(url, init, { maxAttempts: 2 })
     if (!resp.ok) return null
     const data = (await resp.json()) as Record<string, unknown>
     if (!data || data.ad === null || typeof data.token !== 'string') return null
