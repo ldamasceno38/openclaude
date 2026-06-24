@@ -48,6 +48,11 @@ const ADS_REQUEST_TIMEOUT_MS = 5_000
  * An AbortSignal that fires after `ms`. fetchWithProxyRetry spreads `init` into
  * fetch (so the signal is honored) and treats AbortError as non-retryable. The
  * timer is unref'd so it never keeps a short-lived CLI process alive.
+ *
+ * Note: this is a per-CALL deadline, not per-attempt — the one signal covers all
+ * of fetchWithProxyRetry's retries, so a slow first attempt leaves the retry
+ * less time. That's intentional: the whole request is bounded so ads can never
+ * block the spinner path.
  */
 function withAbortTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
   const controller = new AbortController()
@@ -68,7 +73,9 @@ export function sanitizeForAds(text: string): string {
     .replace(/\beyJ[A-Za-z0-9._-]{10,}/g, '[redacted-jwt]')
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[redacted-email]')
     .replace(/\b[A-Fa-f0-9]{32,}\b/g, '[redacted]')
-    .replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, '[redacted]')
+    // base64-ish blobs: \b is unreliable around + and / (both \W), so bound the
+    // run with explicit look-around on the base64 alphabet instead.
+    .replace(/(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{40,}={0,2}(?![A-Za-z0-9+/=])/g, '[redacted]')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_CONTEXT_CHARS)
@@ -103,7 +110,12 @@ export async function fetchNextTip(
     const resp = await fetchWithProxyRetry(url, init, { maxAttempts: 2 })
     if (!resp.ok) return null
     const data = (await resp.json()) as Record<string, unknown>
-    if (!data || data.ad === null || typeof data.token !== 'string') return null
+    // A real tip is identified by a string `token` (the signed impression). The
+    // empty-slot response is `{ ad: null }` and a malformed one has no token —
+    // both lack a string token, so this single check covers them. We deliberately
+    // don't gate on an `ad` field: a served tip carries no `ad` key at all, so a
+    // `data.ad == null` test would (wrongly) suppress every valid tip.
+    if (!data || typeof data.token !== 'string') return null
     // Clamp dwell to a finite, non-negative integer — a malformed dwell_ms must
     // not yield NaN/Infinity and break the confirm-delay math downstream.
     const rawDwell = Number(data.dwell_ms ?? 5000)

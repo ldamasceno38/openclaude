@@ -95,14 +95,11 @@ export function buildEarningTip(): Tip {
       const code = getGlobalConfig().ads?.earnCode
       if (!code) return renderEarningTip(fallback, ctx, false)
 
-      let tip
-      try {
-        // Pass the viewer's latest prompt for contextual ad matching. Enabling
-        // sponsored tips disclosed this sharing; ads.ts sanitizes it first.
-        tip = await fetchNextTip(code, 'openclaude', ctx.latestUserMessage)
-      } catch {
-        tip = null
-      }
+      // Pass the viewer's latest prompt for contextual ad matching. Enabling
+      // sponsored tips disclosed this sharing; ads.ts sanitizes it first.
+      // fetchNextTip is contractually non-throwing (it catches everything and
+      // returns null), so no try/catch is needed at this call site.
+      const tip = await fetchNextTip(code, 'openclaude', ctx.latestUserMessage)
       // A malformed/empty ad payload must not render a blank line and then
       // credit a never-seen ad — degrade to the static fallback instead.
       if (!tip || !tip.text.trim()) return renderEarningTip(fallback, ctx, false)

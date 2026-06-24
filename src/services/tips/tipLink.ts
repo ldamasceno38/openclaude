@@ -34,8 +34,9 @@ export type SponsorLink = {
 // to the terminal (the name inside an OSC 8 hyperlink), so strip C0/C1 control
 // chars (incl. ESC/BEL) to prevent escape-sequence injection, and only honor
 // http(s) URLs so a crafted javascript:/file: target can't be made clickable.
-// Built via RegExp() with escaped sources so no literal control bytes live in
-// this file. Covers C0 (00–1F), DEL (7F), and C1 (80–9F).
+// CONTROL_CHARS_RE: built via RegExp() so the regex SOURCE carries no literal
+// control bytes (the ESC/BEL above in OSC/BEL are intentional terminal-sequence
+// constants, not part of this matcher). Covers C0 (00–1F), DEL (7F), C1 (80–9F).
 const CONTROL_CHARS_RE = new RegExp('[\\u0000-\\u001F\\u007F-\\u009F]', 'g')
 
 function stripControls(value: string): string {
