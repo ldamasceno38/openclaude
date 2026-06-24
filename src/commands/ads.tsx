@@ -107,9 +107,10 @@ function AdsCodeDialog({
 }
 
 /**
- * `/ads on` opens a masked paste dialog (or accepts an inline code). `/ads off`
- * disables. `/ads` shows status. Inline-code args are also redacted from history
- * via `isSensitive` below.
+ * `/ads on` always opens a masked paste dialog and never accepts an inline code
+ * (a code typed inline is already exposed in the terminal scrollback). `/ads off`
+ * disables and clears the stored code. `/ads` shows status. Inline-code args are
+ * also redacted from history via `isSensitive` below.
  */
 export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
   const parts = (args ?? '').trim().split(/\s+/).filter(Boolean)
@@ -117,7 +118,12 @@ export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
 
   if (sub === 'off') {
     const wasOn = getGlobalConfig().ads?.enabled
-    saveGlobalConfig(c => ({ ...c, ads: { ...(c.ads ?? {}), enabled: false } }))
+    // Drop the stored earn code on opt-out — it's a credential, and keeping it at
+    // rest after the user disabled earning has no benefit.
+    saveGlobalConfig(c => {
+      const { earnCode: _earnCode, ...restAds } = c.ads ?? {}
+      return { ...c, ads: { ...restAds, enabled: false } }
+    })
     onDone(wasOn ? 'Sponsored tips disabled.' : 'Sponsored tips are already off.', {
       display: 'system',
     })

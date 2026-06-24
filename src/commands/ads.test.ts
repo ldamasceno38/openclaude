@@ -1,12 +1,21 @@
-import { describe, expect, test, beforeEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import type * as React from 'react'
 import adsCmd from './ads.js'
 import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js'
+
+const ORIGINAL_ADS_BASE_URL = process.env.ADS_BASE_URL
 
 // Unreachable host → the background warm-earn fails fast and never hits the
 // network. (bun test sets NODE_ENV=test, so saveGlobalConfig writes in-memory.)
 beforeEach(() => {
   process.env.ADS_BASE_URL = 'http://127.0.0.1:0'
   saveGlobalConfig(c => ({ ...c, ads: undefined }))
+})
+
+// Restore env so we don't leak ADS_BASE_URL into other suites in the same run.
+afterEach(() => {
+  if (ORIGINAL_ADS_BASE_URL === undefined) delete process.env.ADS_BASE_URL
+  else process.env.ADS_BASE_URL = ORIGINAL_ADS_BASE_URL
 })
 
 type RunResult = { text: string | undefined; node: React.ReactNode }
@@ -42,10 +51,34 @@ describe('/ads command', () => {
     expect(getGlobalConfig().ads?.enabled).toBeFalsy()
   })
 
-  test('"off" disables earning', async () => {
+  test('"off" disables earning and clears the stored code', async () => {
     saveGlobalConfig(c => ({ ...c, ads: { enabled: true, earnCode: 'x' } }))
     const { text } = await run('off')
     expect(text?.toLowerCase()).toContain('disabled')
     expect(getGlobalConfig().ads?.enabled).toBe(false)
+    // The earn code is a credential — it must not survive opt-out.
+    expect(getGlobalConfig().ads?.earnCode).toBeUndefined()
+  })
+
+  test('submitting the masked dialog enables earning and persists the code', async () => {
+    const { call } = await adsCmd.load()
+    let text: string | undefined
+    const node = await call((r?: string) => { text = r }, {} as never, 'on')
+    const props = (node as React.ReactElement<{ onSubmit: (code: string) => void }>)
+      .props
+    props.onSubmit('earn_submitted')
+    expect(getGlobalConfig().ads?.enabled).toBe(true)
+    expect(getGlobalConfig().ads?.earnCode).toBe('earn_submitted')
+    expect(text?.toLowerCase()).toContain('enabled')
+  })
+
+  test('cancelling the masked dialog leaves earning off', async () => {
+    const { call } = await adsCmd.load()
+    let text: string | undefined
+    const node = await call((r?: string) => { text = r }, {} as never, 'on')
+    const props = (node as React.ReactElement<{ onCancel: () => void }>).props
+    props.onCancel()
+    expect(getGlobalConfig().ads?.enabled).toBeFalsy()
+    expect(text?.toLowerCase()).toContain('cancel')
   })
 })

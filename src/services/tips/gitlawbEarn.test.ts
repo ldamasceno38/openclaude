@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { saveGlobalConfig } from '../../utils/config.js'
 import {
   adsEarningEnabled,
@@ -11,12 +11,23 @@ function setAds(ads: { enabled: boolean; earnCode?: string } | undefined): void 
   saveGlobalConfig(c => ({ ...c, ads }))
 }
 
+const ORIGINAL_ADS_BASE_URL = process.env.ADS_BASE_URL
+const ORIGINAL_TIP_EVERY = process.env.OPENCLAUDE_ADS_TIP_EVERY
+
 beforeEach(() => {
   resetEarningCadenceForTesting()
   // Unreachable host → fetchNextTip fails fast and content() degrades to the
   // static fallback, so these tests never hit the network.
   process.env.ADS_BASE_URL = 'http://127.0.0.1:0'
   delete process.env.OPENCLAUDE_ADS_TIP_EVERY
+})
+
+// Restore env so neither knob leaks into other suites in the same bun run.
+afterEach(() => {
+  if (ORIGINAL_ADS_BASE_URL === undefined) delete process.env.ADS_BASE_URL
+  else process.env.ADS_BASE_URL = ORIGINAL_ADS_BASE_URL
+  if (ORIGINAL_TIP_EVERY === undefined) delete process.env.OPENCLAUDE_ADS_TIP_EVERY
+  else process.env.OPENCLAUDE_ADS_TIP_EVERY = ORIGINAL_TIP_EVERY
 })
 
 describe('gitlawb earning tips', () => {

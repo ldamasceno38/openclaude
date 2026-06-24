@@ -87,9 +87,12 @@ export function buildEarningTip(): Tip {
       if (!tip) return renderEarningTip(fallback, ctx, false)
 
       const delay = Math.max(0, Math.min(tip.dwellMs, MAX_CONFIRM_DELAY_MS))
-      setTimeout(() => {
+      // unref'd so this best-effort confirm never keeps a short-lived CLI run
+      // alive for up to the dwell window.
+      const timer = setTimeout(() => {
         void confirmTip(code, tip.token).catch(() => {})
       }, delay)
+      ;(timer as { unref?: () => void }).unref?.()
 
       return renderEarningTip(tip.text, ctx, true)
     },

@@ -40,6 +40,22 @@ const COMMON_HEADERS = (earnCode: string): Record<string, string> => ({
   'x-earn-code': earnCode,
 })
 
+// Hard deadline on each ads request. fetchNextTip runs in the spinner-tip path,
+// so a stalled connection must never hang it — "ads never block" is the rule.
+const ADS_REQUEST_TIMEOUT_MS = 5_000
+
+/**
+ * An AbortSignal that fires after `ms`. fetchWithProxyRetry spreads `init` into
+ * fetch (so the signal is honored) and treats AbortError as non-retryable. The
+ * timer is unref'd so it never keeps a short-lived CLI process alive.
+ */
+function withAbortTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  ;(timer as { unref?: () => void }).unref?.()
+  return { signal: controller.signal, cancel: () => clearTimeout(timer) }
+}
+
 /**
  * Fetch the next sponsored tip for this viewer. Returns null when there's
  * nothing to serve (empty inventory) or on any error — ads must never break or
@@ -49,11 +65,12 @@ export async function fetchNextTip(
   earnCode: string,
   surface = 'openclaude',
 ): Promise<SponsoredTip | null> {
+  const { signal, cancel } = withAbortTimeout(ADS_REQUEST_TIMEOUT_MS)
   try {
     const url = `${adsBaseUrl()}/api/ads/next?surface=${encodeURIComponent(surface)}`
     const resp = await fetchWithProxyRetry(
       url,
-      { method: 'GET', headers: COMMON_HEADERS(earnCode) },
+      { method: 'GET', headers: COMMON_HEADERS(earnCode), signal },
       { maxAttempts: 2 },
     )
     if (!resp.ok) return null
@@ -70,6 +87,8 @@ export async function fetchNextTip(
     }
   } catch {
     return null
+  } finally {
+    cancel()
   }
 }
 
@@ -82,20 +101,26 @@ export async function confirmTip(
   earnCode: string,
   token: string,
 ): Promise<ConfirmResult> {
-  const resp = await fetchWithProxyRetry(
-    `${adsBaseUrl()}/api/ads/confirm`,
-    {
-      method: 'POST',
-      headers: COMMON_HEADERS(earnCode),
-      body: JSON.stringify({ token }),
-    },
-    { maxAttempts: 2 },
-  )
-  const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-  return {
-    status: String(data.status ?? (resp.ok ? 'unknown' : 'error')),
-    earnedMicro: Number(data.earned_micro ?? 0),
-    balanceMicro:
-      data.balance_micro !== undefined ? Number(data.balance_micro) : undefined,
+  const { signal, cancel } = withAbortTimeout(ADS_REQUEST_TIMEOUT_MS)
+  try {
+    const resp = await fetchWithProxyRetry(
+      `${adsBaseUrl()}/api/ads/confirm`,
+      {
+        method: 'POST',
+        headers: COMMON_HEADERS(earnCode),
+        body: JSON.stringify({ token }),
+        signal,
+      },
+      { maxAttempts: 2 },
+    )
+    const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+    return {
+      status: String(data.status ?? (resp.ok ? 'unknown' : 'error')),
+      earnedMicro: Number(data.earned_micro ?? 0),
+      balanceMicro:
+        data.balance_micro !== undefined ? Number(data.balance_micro) : undefined,
+    }
+  } finally {
+    cancel()
   }
 }
