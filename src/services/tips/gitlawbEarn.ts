@@ -64,7 +64,11 @@ function renderEarningTip(
   // partner's tracker — that's what records the click and pays us). Fall back to
   // Gitlawb only for the static no-ad line.
   const sponsor = ad?.name?.trim() || GITLAWB.name
-  const linkUrl = ad?.link?.trim() || GITLAWB.url
+  // Never point a third-party advertiser's name at the Gitlawb URL: for a real
+  // ad use only its own click URL (no link if it's missing), and reserve the
+  // Gitlawb fallback for the static no-ad line.
+  const adLink = ad?.link?.trim()
+  const linkUrl = earning ? adLink : adLink || GITLAWB.url
   // Make the advertiser name a clickable hyperlink to its click URL instead of
   // printing the (often very long) tracker URL inline. Clicks still hit the
   // tracker, so attribution/payout are unchanged.

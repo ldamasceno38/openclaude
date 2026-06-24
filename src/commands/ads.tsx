@@ -33,8 +33,9 @@ function enableWithCode(code: string): string {
   void warmOneEarn(code)
   return [
     "Sponsored tips enabled — you'll see them during loading and earn",
-    'opengateway credits each time. Your recent prompt (secrets redacted) is',
-    'shared with our ad partner to match a relevant tip. Run /ads for your balance.',
+    'opengateway credits each time. Your recent prompt (with best-effort secret',
+    'redaction) is shared with our ad partner to match a relevant tip.',
+    'Run /ads for your balance.',
   ].join('\n')
 }
 
@@ -86,8 +87,8 @@ function AdsCodeDialog({
         Paste your earn code (gitlawb.com/opengateway → Earn). It stays hidden as you type.
       </Text>
       <Text dimColor>
-        Tips are contextual: your most recent prompt (with secrets redacted) is shared
-        with our ad partner to match a relevant tip. Disable any time with /ads off.
+        Tips are contextual: your most recent prompt (with best-effort secret redaction)
+        is shared with our ad partner to match a relevant tip. Disable any time with /ads off.
       </Text>
       <Box flexDirection="row" gap={1}>
         <Text>›</Text>

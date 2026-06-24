@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { saveGlobalConfig } from '../../utils/config.js'
+import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js'
 import {
   adsEarningEnabled,
   shouldShowEarningTip,
@@ -13,8 +13,10 @@ function setAds(ads: { enabled: boolean; earnCode?: string } | undefined): void 
 
 const ORIGINAL_ADS_BASE_URL = process.env.ADS_BASE_URL
 const ORIGINAL_TIP_EVERY = process.env.OPENCLAUDE_ADS_TIP_EVERY
+let originalAds = getGlobalConfig().ads
 
 beforeEach(() => {
+  originalAds = getGlobalConfig().ads
   resetEarningCadenceForTesting()
   // Unreachable host → fetchNextTip fails fast and content() degrades to the
   // static fallback, so these tests never hit the network.
@@ -22,8 +24,9 @@ beforeEach(() => {
   delete process.env.OPENCLAUDE_ADS_TIP_EVERY
 })
 
-// Restore env so neither knob leaks into other suites in the same bun run.
+// Restore env + global ads config so nothing leaks into other suites in the run.
 afterEach(() => {
+  saveGlobalConfig(c => ({ ...c, ads: originalAds }))
   if (ORIGINAL_ADS_BASE_URL === undefined) delete process.env.ADS_BASE_URL
   else process.env.ADS_BASE_URL = ORIGINAL_ADS_BASE_URL
   if (ORIGINAL_TIP_EVERY === undefined) delete process.env.OPENCLAUDE_ADS_TIP_EVERY

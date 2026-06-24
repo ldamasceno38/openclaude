@@ -104,6 +104,11 @@ export async function fetchNextTip(
     if (!resp.ok) return null
     const data = (await resp.json()) as Record<string, unknown>
     if (!data || data.ad === null || typeof data.token !== 'string') return null
+    // Clamp dwell to a finite, non-negative integer — a malformed dwell_ms must
+    // not yield NaN/Infinity and break the confirm-delay math downstream.
+    const rawDwell = Number(data.dwell_ms ?? 5000)
+    const dwellMs =
+      Number.isFinite(rawDwell) && rawDwell >= 0 ? Math.trunc(rawDwell) : 5000
     return {
       impressionId: String(data.impression_id),
       token: String(data.token),
@@ -111,7 +116,7 @@ export async function fetchNextTip(
       name: String(data.name ?? ''),
       link: String(data.link ?? ''),
       label: String(data.label ?? 'Sponsored'),
-      dwellMs: Number(data.dwell_ms ?? 5000),
+      dwellMs,
     }
   } catch {
     return null
