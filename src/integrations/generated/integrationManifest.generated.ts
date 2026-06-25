@@ -157,6 +157,32 @@ export const PROVIDER_PRESET_MANIFEST = [
     ]
   },
   {
+    "preset": "headroom",
+    "routeKind": "gateway",
+    "routeId": "headroom",
+    "vendorId": "openai",
+    "gatewayId": "headroom",
+    "description": "Headroom RTK compression proxy (localhost:8787)",
+    "label": "Headroom",
+    "name": "Headroom",
+    "apiKeyEnvVars": [
+      "HEADROOM_API_KEY"
+    ],
+    "baseUrlEnvVars": [
+      "HEADROOM_BASE_URL",
+      "OPENAI_BASE_URL"
+    ],
+    "modelEnvVars": [
+      "OPENAI_MODEL"
+    ],
+    "fallbackBaseUrl": "http://localhost:8787/v1",
+    "fallbackModel": "gpt-4o",
+    "badge": {
+      "text": "Local",
+      "color": "neutral"
+    }
+  },
+  {
     "preset": "hicap",
     "routeKind": "gateway",
     "routeId": "hicap",
@@ -448,6 +474,7 @@ export const ORDERED_PROVIDER_PRESETS = [
   "fireworks",
   "gemini",
   "groq",
+  "headroom",
   "hicap",
   "lmstudio",
   "atomic-chat",
