@@ -49,6 +49,8 @@ export default defineGateway({
     source: 'hybrid',
     discovery: {
       kind: 'openai-compatible',
+      requiresAuth: true,
+      path: '/v1/models',
       mapModel(raw: unknown) {
         if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
           return null
@@ -68,7 +70,39 @@ export default defineGateway({
     discoveryCacheTtl: '1h',
     discoveryRefreshMode: 'startup',
     allowManualRefresh: true,
-    models: [],
+    models: [
+      // OpenAI / common models
+      { id: 'gpt-4o', apiName: 'gpt-4o', label: 'GPT-4o', contextWindow: 128_000 },
+      { id: 'gpt-4o-mini', apiName: 'gpt-4o-mini', label: 'GPT-4o Mini', contextWindow: 128_000 },
+      { id: 'gpt-4-turbo', apiName: 'gpt-4-turbo', label: 'GPT-4 Turbo', contextWindow: 128_000 },
+      { id: 'gpt-4', apiName: 'gpt-4', label: 'GPT-4', contextWindow: 8_192 },
+      { id: 'gpt-3.5-turbo', apiName: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', contextWindow: 16_385 },
+      // DeepSeek
+      { id: 'deepseek-v4-flash', apiName: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', contextWindow: 1_048_576 },
+      { id: 'deepseek-v4-pro', apiName: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', contextWindow: 1_048_576 },
+      // Qwen
+      { id: 'qwen3.7-max', apiName: 'qwen3.7-max', label: 'Qwen 3.7 Max', contextWindow: 131_072 },
+      { id: 'qwen3.7-plus', apiName: 'qwen3.7-plus', label: 'Qwen 3.7 Plus', contextWindow: 131_072 },
+      // GLM
+      { id: 'glm-5.2', apiName: 'glm-5.2', label: 'GLM 5.2', contextWindow: 128_000 },
+      { id: 'glm-5.1', apiName: 'glm-5.1', label: 'GLM 5.1', contextWindow: 128_000 },
+      // Kimi
+      { id: 'kimi-k2.7-code', apiName: 'kimi-k2.7-code', label: 'Kimi K2.7 Code', contextWindow: 131_072 },
+      { id: 'kimi-k2.6', apiName: 'kimi-k2.6', label: 'Kimi K2.6', contextWindow: 131_072 },
+      // MiniMax
+      { id: 'minimax-m3', apiName: 'minimax-m3', label: 'MiniMax M3', contextWindow: 1_048_576 },
+      { id: 'minimax-m2.7', apiName: 'minimax-m2.7', label: 'MiniMax M2.7', contextWindow: 204_800 },
+      // MiMo
+      { id: 'mimo-v2.5-pro', apiName: 'mimo-v2.5-pro', label: 'MiMo V2.5 Pro', contextWindow: 128_000 },
+      { id: 'mimo-v2.5', apiName: 'mimo-v2.5', label: 'MiMo V2.5', contextWindow: 128_000 },
+      // Claude via proxy
+      { id: 'claude-sonnet-4-6', apiName: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', contextWindow: 200_000 },
+      { id: 'claude-sonnet-4', apiName: 'claude-sonnet-4', label: 'Claude Sonnet 4', contextWindow: 200_000 },
+      { id: 'claude-haiku-4', apiName: 'claude-haiku-4', label: 'Claude Haiku 4', contextWindow: 200_000 },
+      // OpenRouter / other
+      { id: 'accounts/fireworks/models/llama-v4-scout', apiName: 'accounts/fireworks/models/llama-v4-scout', label: 'Llama 4 Scout' },
+      { id: 'accounts/fireworks/models/llama-v4-maverick', apiName: 'accounts/fireworks/models/llama-v4-maverick', label: 'Llama 4 Maverick' },
+    ],
   },
   usage: { supported: false },
 })
